@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-go v7.0.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: go vet
+        run: go vet ./...
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+      - name: Test (scenarios skipped without the suite)
+        run: go test -race -count=1 ./...
+      - name: Read pinned scenarios ref
+        id: ref
+        run: echo "sha=$(tr -d '[:space:]' < SCENARIOS_REF)" >> "$GITHUB_OUTPUT"
+      # actions/checkout v7.0.1
+      - name: Check out shared scenarios
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: usedock/dock
+          ref: ${{ steps.ref.outputs.sha }}
+          path: dock
+          sparse-checkout: sdk-scenarios
+      - name: Scenario suite (offline fixtures)
+        env:
+          DOCK_SCENARIOS_DIR: ${{ github.workspace }}/dock/sdk-scenarios
+        run: |
+          go test -race -count=1 -run TestScenarios -v ./... | tee scenarios.log
+          if grep -q -- '--- SKIP: TestScenarios/offline' scenarios.log; then echo "offline scenarios were skipped"; exit 1; fi
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git /repo --no-banner --redact
