@@ -2,39 +2,120 @@
 
 The Go client for [Dock](https://github.com/usedock/dock): isolated Linux machines for agents, on your laptop, your servers, or our cloud.
 
-> **Status:** not released yet. This SDK is being written by hand.
+> **Status:** not published yet. The module path is final, but there is no tagged release; expect changes until `v0.1.0`.
 
-## Proposed API: install
-
-There is no `go.mod` or release yet.
+## Install
 
 ```sh
 go get github.com/usedock/dock-go
 ```
 
-## Proposed API: example
+Requires Go 1.22 or newer. The runtime uses only the standard library.
 
-Nothing below works yet; it shows the intended shape.
+## Example
+
+Create a dock, run a command, write and read a file, and delete it.
 
 ```go
-client := dock.NewClient() // reads DOCK_API_KEY and the current context
+package main
 
-d, err := client.Docks.Create(ctx, dock.CreateOptions{CPUs: 2, Memory: "4gb"})
-if err != nil {
-    return err
+import (
+	"context"
+	"fmt"
+	"log"
+
+	dock "github.com/usedock/dock-go"
+)
+
+func main() {
+	ctx := context.Background()
+	client := dock.NewClient() // reads DOCK_API_KEY and DOCK_API_URL
+
+	d, err := client.Docks.Create(ctx, dock.CreateParams{
+		WorkspaceID: "your-workspace-id",
+		Name:        "demo",
+		CPUs:        2,
+		MemoryMiB:   4096,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Docks.Delete(ctx, d.ID)
+
+	res, err := client.Docks.Exec(ctx, d.ID, dock.ExecParams{Command: "echo hello"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(res.Stdout) // hello
+
+	_ = client.Files.Write(ctx, d.ID, "/home/user/work/notes.txt", []byte("hi\n"))
+	b, _ := client.Files.Read(ctx, d.ID, "/home/user/work/notes.txt")
+	fmt.Print(string(b))
 }
-run, err := d.Exec(ctx, "bun test")
-fmt.Println(run.Stdout)
-_ = d.Stop(ctx)
 ```
 
-The context is a self-hosted control plane, or Dock Cloud (coming soon).
+## API
+
+Every call takes a `context.Context`; create, stop, resume and branch return when the work is done, so bound them with the context.
+
+| Call | Route |
+|---|---|
+| `client.Docks.Create / List / Get / Update` | `POST/GET /v1/docks`, `GET/PATCH /v1/docks/{id}` |
+| `client.Docks.Exec` | `POST /v1/docks/{id}/exec` |
+| `client.Docks.Stop / Resume / Branch` | `POST /v1/docks/{id}/stop`, `/resume`, `/branch` |
+| `client.Docks.Delete` | `DELETE /v1/docks/{id}` (sends the `x-confirm-delete` header; returns an operation) |
+| `client.Operations.Get` | `GET /v1/operations/{id}` |
+| `client.Files.Write / Read / List` | built on exec, see below |
+
+The API has no file routes. `Files` runs one `Docks.Exec` per call with the paths shell-quoted and the content sent as base64, so the dock must be running and one write is limited to about 48 KB (larger content fails with code `file_too_large` before anything is sent). A read is limited to about 768 KB of file content (the API clips exec output at 1 MiB), and clipped output from `Read` or `List` fails with code `output_truncated` instead of returning partial data. A non-zero exit from the command is an error with code `file_command_failed`.
+
+Response structs ignore fields they do not know, and only `id`, `name` and `state` are relied upon.
+
+## Configuration
+
+| Setting | Option | Environment | Default |
+|---|---|---|---|
+| API key (`dock_...`) | `dock.WithAPIKey` | `DOCK_API_KEY` | none; the first call fails with `missing_api_key` |
+| Control plane origin, without `/v1` | `dock.WithBaseURL` | `DOCK_API_URL` | `https://api.usedock.io` |
+| HTTP client | `dock.WithHTTPClient` | | `http.Client` with no timeout |
+
+Options override the environment.
+
+## Errors
+
+API failures are `*dock.Error` with `Code` (stable, for example `dock_not_found`), `Status` (HTTP status) and `Message`:
+
+```go
+_, err := client.Docks.Get(ctx, id)
+var apiErr *dock.Error
+if errors.As(err, &apiErr) && apiErr.Code == "dock_not_found" {
+	// ...
+}
+```
+
+Network failures and cancelled contexts are returned as ordinary errors.
+
+## Tests and shared scenarios
+
+```sh
+go test ./...
+```
+
+The SDKs share one scenario suite, `sdk-scenarios/` in [usedock/dock](https://github.com/usedock/dock). The scenario test loads it from `DOCK_SCENARIOS_DIR` (default `../dock/sdk-scenarios`) and skips when it is absent. The commit CI uses is pinned in `SCENARIOS_REF`.
+
+- Offline: every scenario replays its recorded fixture against a local fake server.
+- Live: with `DOCK_API_URL`, `DOCK_API_KEY` and `DOCK_WORKSPACE_ID` set, the same scenarios run against a real control plane. They create and delete docks named `sdk-...`, so use a throwaway workspace.
+
+```sh
+git clone --depth 1 https://github.com/usedock/dock ../dock
+DOCK_SCENARIOS_DIR=../dock/sdk-scenarios go test -run TestScenarios -v ./...
+```
 
 ## Design
 
-- Written by hand, not generated, so names read the way you would say them: `Docks.Create`, `d.Exec`, `d.Branch`.
+- Written by hand, not generated, so names read the way you would say them: `Docks.Create`, `Docks.Exec`, `Docks.Branch`.
 - Only public routes. Fleet, admin and internal routes never appear.
-- The same nouns and verbs as the [TypeScript](https://github.com/usedock/dock-js) and [Python](https://github.com/usedock/dock-python) SDKs, and, planned, one shared scenario suite (create, exec, stop, resume, branch, delete) run against a real control plane.
+- The same nouns and verbs as the [TypeScript](https://github.com/usedock/dock-js) and [Python](https://github.com/usedock/dock-python) SDKs, checked by the shared scenario suite.
 - Semver; a major version matches an API version.
 
 ## Contributing
