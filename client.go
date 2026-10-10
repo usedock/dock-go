@@ -69,6 +69,23 @@ func NewClient(opts ...Option) *Client {
 	return c
 }
 
+// String describes the client without its API key, so logging it with %v or
+// %+v is safe.
+func (c Client) String() string { return "dock.Client{baseURL: " + c.baseURL + "}" }
+
+// GoString is String, so %#v does not print the API key either.
+func (c Client) GoString() string { return c.String() }
+
+// transportError is a failed round trip. Its message has the API key redacted;
+// Unwrap returns the cause (for example context.Canceled).
+type transportError struct {
+	msg string
+	err error
+}
+
+func (e *transportError) Error() string { return e.msg }
+func (e *transportError) Unwrap() error { return e.err }
+
 type envelope struct {
 	OK      bool            `json:"ok"`
 	Data    json.RawMessage `json:"data"`
@@ -108,8 +125,9 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		// Never echo the key, even if a transport error quotes the request.
-		return fmt.Errorf("dock: %s", strings.ReplaceAll(err.Error(), c.apiKey, "***"))
+		// Never echo the key, even if a transport error quotes the request, but
+		// keep the cause so errors.Is(err, context.DeadlineExceeded) works.
+		return &transportError{msg: "dock: " + strings.ReplaceAll(err.Error(), c.apiKey, "***"), err: err}
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))

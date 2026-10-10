@@ -36,6 +36,16 @@ func (s *FilesService) run(ctx context.Context, dockID, command string) (*ExecRe
 	return res, nil
 }
 
+// checkTruncated refuses output the API clipped (1 MiB per stream). A clipped
+// base64 stream can still decode, so without this Read would return a prefix
+// of the file as if it were all of it.
+func checkTruncated(res *ExecResult, what string) error {
+	if res.Truncated {
+		return &Error{Code: "output_truncated", Status: 200, Message: what + ": output exceeded the exec output limit (1 MiB, about 768 KB of file content)"}
+	}
+	return nil
+}
+
 func checkPath(path string) error {
 	if path == "" {
 		return &Error{Code: "invalid_argument", Message: "path is empty"}
@@ -57,13 +67,17 @@ func (s *FilesService) Write(ctx context.Context, dockID, path string, content [
 	return err
 }
 
-// Read returns the content of the file at path.
+// Read returns the content of the file at path. A file larger than about
+// 768 KB is refused with code "output_truncated".
 func (s *FilesService) Read(ctx context.Context, dockID, path string) ([]byte, error) {
 	if err := checkPath(path); err != nil {
 		return nil, err
 	}
 	res, err := s.run(ctx, dockID, "base64 -w0 -- "+shellWord(path))
 	if err != nil {
+		return nil, err
+	}
+	if err := checkTruncated(res, "read "+path); err != nil {
 		return nil, err
 	}
 	b, derr := base64.StdEncoding.DecodeString(strings.TrimSpace(res.Stdout))
@@ -81,6 +95,9 @@ func (s *FilesService) List(ctx context.Context, dockID, path string) ([]string,
 	}
 	res, err := s.run(ctx, dockID, "ls -1A -- "+shellWord(path))
 	if err != nil {
+		return nil, err
+	}
+	if err := checkTruncated(res, "list "+path); err != nil {
 		return nil, err
 	}
 	entries := []string{}

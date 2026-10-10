@@ -2,6 +2,7 @@ package dock
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 )
 
@@ -49,6 +50,21 @@ type UpdateParams struct {
 	MemoryMiB  int    `json:"memoryMiB,omitempty"`
 	DiskGiB    int    `json:"diskGiB,omitempty"`
 	TTLSeconds int    `json:"ttlSeconds,omitempty"`
+	// ClearTTL turns auto-stop off by sending ttlSeconds as null. It cannot be
+	// combined with TTLSeconds.
+	ClearTTL bool `json:"-"`
+}
+
+// MarshalJSON sends ttlSeconds as null when ClearTTL is set.
+func (p UpdateParams) MarshalJSON() ([]byte, error) {
+	type plain UpdateParams
+	if !p.ClearTTL {
+		return json.Marshal(plain(p))
+	}
+	return json.Marshal(struct {
+		plain
+		TTLSeconds *int `json:"ttlSeconds"`
+	}{plain: plain(p)})
 }
 
 // ExecParams are the fields of Docks.Exec.
@@ -145,8 +161,11 @@ func (s *DocksService) Get(ctx context.Context, dockID string) (*Dock, error) {
 	return &d, nil
 }
 
-// Update renames or resizes a dock.
+// Update renames or resizes a dock, or changes its auto-stop TTL.
 func (s *DocksService) Update(ctx context.Context, dockID string, p UpdateParams) (*Dock, error) {
+	if p.ClearTTL && p.TTLSeconds != 0 {
+		return nil, &Error{Code: "invalid_argument", Message: "set TTLSeconds or ClearTTL, not both"}
+	}
 	var d Dock
 	if err := s.c.do(ctx, "PATCH", dockPath(dockID), nil, nil, p, &d); err != nil {
 		return nil, err
@@ -164,7 +183,8 @@ func (s *DocksService) Exec(ctx context.Context, dockID string, p ExecParams) (*
 }
 
 // Stop stops a dock, keeping its state, and returns once it is stopped.
-// params may be nil.
+// The API answers with only the id and state, so the other Dock fields are
+// zero; use Get for the full dock. params may be nil.
 func (s *DocksService) Stop(ctx context.Context, dockID string, params *StopParams) (*Dock, error) {
 	var body any = struct{}{}
 	if params != nil {
@@ -173,7 +193,8 @@ func (s *DocksService) Stop(ctx context.Context, dockID string, params *StopPara
 	return s.action(ctx, dockID, "/stop", nil, body)
 }
 
-// Resume starts a stopped dock and returns once it is ready. params may be nil.
+// Resume starts a stopped dock and returns once it is ready. Like Stop, only
+// ID and State are filled. params may be nil.
 func (s *DocksService) Resume(ctx context.Context, dockID string, params *ResumeParams) (*Dock, error) {
 	var body any = struct{}{}
 	if params != nil {

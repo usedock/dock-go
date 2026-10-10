@@ -10,7 +10,7 @@ The Go client for [Dock](https://github.com/usedock/dock): isolated Linux machin
 go get github.com/usedock/dock-go
 ```
 
-Requires Go 1.25 or newer. The runtime uses only the standard library.
+Requires Go 1.22 or newer. The runtime uses only the standard library.
 
 ## Example
 
@@ -67,7 +67,7 @@ Every call takes a `context.Context`; create, stop, resume and branch return whe
 | `client.Operations.Get` | `GET /v1/operations/{id}` |
 | `client.Files.Write / Read / List` | built on exec, see below |
 
-The API has no file routes. `Files` runs one `Docks.Exec` per call with the paths shell-quoted and the content sent as base64, so the dock must be running and one write is limited to about 48 KB (larger content fails with code `file_too_large` before anything is sent). A non-zero exit from the command is an error with code `file_command_failed`.
+The API has no file routes. `Files` runs one `Docks.Exec` per call with the paths shell-quoted and the content sent as base64, so the dock must be running and one write is limited to about 48 KB (larger content fails with code `file_too_large` before anything is sent). A read is limited to about 768 KB of file content (the API clips exec output at 1 MiB), and clipped output from `Read` or `List` fails with code `output_truncated` instead of returning partial data. A non-zero exit from the command is an error with code `file_command_failed`.
 
 Response structs ignore fields they do not know, and only `id`, `name` and `state` are relied upon.
 

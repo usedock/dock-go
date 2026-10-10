@@ -161,21 +161,15 @@ func TestDeleteSendsConfirmHeader(t *testing.T) {
 	}
 }
 
+// GET /v1/operations/:id returns the bare OperationView (retention.controller.ts).
 func TestOperationsGet(t *testing.T) {
-	for name, body := range map[string]string{
-		"bare":    `{"ok":true,"data":{"id":"op1","status":"running"}}`,
-		"wrapped": `{"ok":true,"data":{"operation":{"id":"op1","status":"running"}}}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			c, got := serve(t, 200, body)
-			op, err := c.Operations.Get(context.Background(), "op1")
-			if err != nil || op.ID != "op1" || op.Status != "running" {
-				t.Fatalf("%v %+v", err, op)
-			}
-			if got.Method != "GET" || got.Path != "/v1/operations/op1" {
-				t.Fatalf("%s %s", got.Method, got.Path)
-			}
-		})
+	c, got := serve(t, 200, `{"ok":true,"data":{"id":"op1","targetType":"dock","targetId":"d1","status":"pending"}}`)
+	op, err := c.Operations.Get(context.Background(), "op1")
+	if err != nil || op.ID != "op1" || op.Status != "pending" || op.TargetType != "dock" || op.TargetID != "d1" {
+		t.Fatalf("%v %+v", err, op)
+	}
+	if got.Method != "GET" || got.Path != "/v1/operations/op1" {
+		t.Fatalf("%s %s", got.Method, got.Path)
 	}
 }
 
