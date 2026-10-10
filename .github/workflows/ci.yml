@@ -9,21 +9,38 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-go v7.0.0
+      # staticcheck v0.8.1 cannot read Go 1.27 export data, so lint on 1.26.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.x'
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 ./...
+
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest Go in go.mod, and the current release.
+        go: ['1.22.x', 'stable']
+    name: test (go ${{ matrix.go }})
     steps:
       # actions/checkout v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       # actions/setup-go v7.0.0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version-file: go.mod
-      - name: gofmt
-        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          go-version: ${{ matrix.go }}
       - name: go vet
         run: go vet ./...
-      - name: staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
       - name: Test (scenarios skipped without the suite)
         run: go test -race -count=1 ./...
       - name: Read pinned scenarios ref
