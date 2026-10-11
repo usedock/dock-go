@@ -137,3 +137,29 @@ func TestUpdateClearTTLSendsNull(t *testing.T) {
 		t.Fatal("TTLSeconds with ClearTTL must be refused")
 	}
 }
+
+func TestResumeClearTTLSendsNull(t *testing.T) {
+	c, got := serve(t, 202, `{"ok":true,"data":{"id":"d1","state":"ready"}}`)
+	ctx := context.Background()
+	if _, err := c.Docks.Resume(ctx, "d1", &dock.ResumeParams{ClearTTL: true, CPUs: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := got.Body["ttlSeconds"]; !ok || v != nil || got.Body["cpus"] != float64(2) {
+		t.Fatalf("ttlSeconds must be sent as null: %v", got.Body)
+	}
+	if _, err := c.Docks.Resume(ctx, "d1", &dock.ResumeParams{TTLSeconds: 600}); err != nil {
+		t.Fatal(err)
+	}
+	if got.Body["ttlSeconds"] != float64(600) {
+		t.Fatalf("ttlSeconds must be set: %v", got.Body)
+	}
+	if _, err := c.Docks.Resume(ctx, "d1", &dock.ResumeParams{NoEnv: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got.Body["ttlSeconds"]; ok {
+		t.Fatalf("ttlSeconds must be omitted by default: %v", got.Body)
+	}
+	if _, err := c.Docks.Resume(ctx, "d1", &dock.ResumeParams{TTLSeconds: 120, ClearTTL: true}); err == nil {
+		t.Fatal("TTLSeconds with ClearTTL must be refused")
+	}
+}
