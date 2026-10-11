@@ -66,6 +66,7 @@ Every call takes a `context.Context`; create, stop, resume and branch return whe
 | `client.Docks.Delete` | `DELETE /v1/docks/{id}` (sends the `x-confirm-delete` header; returns an operation) |
 | `client.Operations.Get` | `GET /v1/operations/{id}` |
 | `client.Connectors.List / Connect / Disconnect` | `GET /v1/workspaces/{id}/connectors`, `PUT/DELETE /v1/workspaces/{id}/connectors/{kind}` |
+| `client.Ports.List / Expose / Remove` | `GET/POST /v1/docks/{id}/ports`, `DELETE /v1/docks/{id}/ports/{port}` |
 | `client.Images.List` | `GET /v1/images` |
 | `client.Files.Write / Read / List` | built on exec, see below |
 
@@ -74,6 +75,22 @@ Auto-stop: `TTLSeconds` sets it (counted from ready) on `Update` and `Resume`, `
 The API has no file routes. `Files` runs one `Docks.Exec` per call with the paths shell-quoted and the content sent as base64, so the dock must be running and one write is limited to about 48 KB (larger content fails with code `file_too_large` before anything is sent). A read is limited to about 768 KB of file content (the API clips exec output at 1 MiB), and clipped output from `Read` or `List` fails with code `output_truncated` instead of returning partial data. A non-zero exit from the command is an error with code `file_command_failed` (this includes `List` on a path that is not a directory). These codes match the "File helper errors" table in the shared scenarios. `List` returns names in no fixed order, including hidden entries; names are base64-encoded on the wire, so names with newlines or other odd bytes survive.
 
 Response structs ignore fields they do not know, and only `id`, `name` and `state` are relied upon.
+
+## Ports
+
+Expose a TCP port inside a dock at a URL. A new port is private: the URL needs a dock-bound API key or an organization member's sign-in. Set `Visibility` to open it to anyone with the URL.
+
+```go
+p, _ := client.Ports.Expose(ctx, d.ID, 3000, dock.ExposePortParams{}) // p.Visibility == "private"
+
+// Exposing again with a visibility changes it; leaving it empty keeps the current one.
+p, _ = client.Ports.Expose(ctx, d.ID, 3000, dock.ExposePortParams{Visibility: dock.VisibilityPublic})
+
+ps, _ := client.Ports.List(ctx, d.ID) // port, visibility, url, createdAt
+_ = client.Ports.Remove(ctx, d.ID, 3000)
+```
+
+`URL` is nil while hosted ports are off on the deployment.
 
 ## Connectors and images
 
