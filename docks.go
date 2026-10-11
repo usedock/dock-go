@@ -102,6 +102,21 @@ type ResumeParams struct {
 	TTLSeconds  int    `json:"ttlSeconds,omitempty"`
 	Environment string `json:"environment,omitempty"`
 	NoEnv       bool   `json:"noEnv,omitempty"`
+	// ClearTTL turns auto-stop off by sending ttlSeconds as null. It cannot be
+	// combined with TTLSeconds.
+	ClearTTL bool `json:"-"`
+}
+
+// MarshalJSON sends ttlSeconds as null when ClearTTL is set.
+func (p ResumeParams) MarshalJSON() ([]byte, error) {
+	type plain ResumeParams
+	if !p.ClearTTL {
+		return json.Marshal(plain(p))
+	}
+	return json.Marshal(struct {
+		plain
+		TTLSeconds *int `json:"ttlSeconds"`
+	}{plain: plain(p)})
 }
 
 // BranchParams are the optional fields of Docks.Branch.
@@ -203,6 +218,9 @@ func (s *DocksService) Stop(ctx context.Context, dockID string, params *StopPara
 func (s *DocksService) Resume(ctx context.Context, dockID string, params *ResumeParams) (*Dock, error) {
 	var body any = struct{}{}
 	if params != nil {
+		if params.ClearTTL && params.TTLSeconds != 0 {
+			return nil, &Error{Code: "invalid_argument", Message: "set TTLSeconds or ClearTTL, not both"}
+		}
 		body = params
 	}
 	return s.action(ctx, dockID, "/resume", nil, body)
