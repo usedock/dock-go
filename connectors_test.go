@@ -110,6 +110,15 @@ func TestConnectorsDisconnect(t *testing.T) {
 	}
 }
 
+func TestConnectorsDisconnectNotConnected(t *testing.T) {
+	c, _ := serve(t, 404, `{"ok":false,"code":"connector_not_found","message":"Connector not found"}`)
+	cn, err := c.Connectors.Disconnect(context.Background(), "w1", "slack")
+	var apiErr *dock.Error
+	if cn != nil || !errors.As(err, &apiErr) || apiErr.Code != dock.CodeConnectorNotFound || apiErr.Status != 404 {
+		t.Fatalf("connector %+v err %v", cn, err)
+	}
+}
+
 func TestImagesList(t *testing.T) {
 	c, got := serve(t, 200, `{"ok":true,"data":[{"name":"ubuntu-24.04","description":"d","arch":["amd64","arm64"],"sizeMiB":512,"contents":"base","available":true},{"name":"browser","description":"b","arch":["amd64"],"sizeMiB":900,"contents":"chromium","available":false}]}`)
 	imgs, err := c.Images.List(context.Background())

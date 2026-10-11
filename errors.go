@@ -30,6 +30,9 @@ const (
 	// CodeConnectorAdminOnly (HTTP 403): only organization admins can launch
 	// or open docks that use connectors.
 	CodeConnectorAdminOnly = "connector_admin_only"
+	// CodeConnectorNotFound (HTTP 404): Disconnect of a connector that is not
+	// connected.
+	CodeConnectorNotFound = "connector_not_found"
 	// CodeImageUnknown (HTTP 400): the image is not in the catalog.
 	CodeImageUnknown = "image_unknown"
 	// CodeImageUnavailable (HTTP 400): the image is known but no host serves it.

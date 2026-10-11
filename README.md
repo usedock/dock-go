@@ -96,7 +96,7 @@ if errors.As(err, &apiErr) && apiErr.Code == dock.CodeConnectorNotConnected {
 _, _ = client.Connectors.Disconnect(ctx, "your-workspace-id", "slack")
 ```
 
-Error codes: `dock.CodeConnectorNotConnected` (409), `dock.CodeConnectorAdminOnly` (403), `dock.CodeImageUnknown` (400), `dock.CodeImageUnavailable` (400).
+Error codes: `dock.CodeConnectorNotConnected` (409), `dock.CodeConnectorAdminOnly` (403), `dock.CodeConnectorNotFound` (404, from `Disconnect`), `dock.CodeImageUnknown` (400), `dock.CodeImageUnavailable` (400).
 
 ## Configuration
 
