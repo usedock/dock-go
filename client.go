@@ -26,6 +26,8 @@ type Client struct {
 	Files *FilesService
 	// Connectors lists, connects and disconnects a workspace's tool connectors.
 	Connectors *ConnectorsService
+	// Environments reads and updates organization environments.
+	Environments *EnvironmentsService
 	// Ports exposes dock ports at URLs, private or public.
 	Ports *PortsService
 	// Images lists the Dockyard image catalog.
@@ -72,6 +74,7 @@ func NewClient(opts ...Option) *Client {
 	c.Docks = &DocksService{c: c}
 	c.Files = &FilesService{c: c}
 	c.Connectors = &ConnectorsService{c: c}
+	c.Environments = &EnvironmentsService{c: c}
 	c.Ports = &PortsService{c: c}
 	c.Images = &ImagesService{c: c}
 	c.Operations = &OperationsService{c: c}

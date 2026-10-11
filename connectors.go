@@ -20,8 +20,12 @@ type Connector struct {
 	OAuthAvailable bool `json:"oauthAvailable,omitempty"`
 	// ReadOnly entries cannot be connected or disconnected with Connect and
 	// Disconnect.
-	ReadOnly  bool    `json:"readOnly,omitempty"`
-	UpdatedAt *string `json:"updatedAt,omitempty"`
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// CredentialType is how the credential was obtained: "oauth",
+	// "personal_token", "bot_token", "org_token", "user_token" or "token". Nil
+	// when not connected or not recorded.
+	CredentialType *string `json:"credentialType,omitempty"`
+	UpdatedAt      *string `json:"updatedAt,omitempty"`
 }
 
 // ConnectorsService is the workspace connectors API. Get it from

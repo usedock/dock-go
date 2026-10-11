@@ -33,6 +33,12 @@ const (
 	// CodeConnectorNotFound (HTTP 404): Disconnect of a connector that is not
 	// connected.
 	CodeConnectorNotFound = "connector_not_found"
+	// CodeConnectorTokenInvalid (HTTP 400): the vendor rejected the token passed
+	// to Connect.
+	CodeConnectorTokenInvalid = "connector_token_invalid"
+	// CodeConnectorUnreachable (HTTP 502): the vendor could not be reached to
+	// verify the token.
+	CodeConnectorUnreachable = "connector_unreachable"
 	// CodeImageUnknown (HTTP 400): the image is not in the catalog.
 	CodeImageUnknown = "image_unknown"
 	// CodeImageUnavailable (HTTP 400): the image is known but no host serves it.
