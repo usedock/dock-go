@@ -35,6 +35,55 @@ func TestFilesReadRefusesTruncatedOutput(t *testing.T) {
 	}
 }
 
+// Each file error code of the sdk-scenarios README table is a *dock.Error.
+func TestFileErrorCodes(t *testing.T) {
+	ctx := context.Background()
+	codeOf := func(err error) string {
+		var apiErr *dock.Error
+		if !errors.As(err, &apiErr) {
+			t.Fatalf("not a *dock.Error: %v", err)
+		}
+		return apiErr.Code
+	}
+	c, _ := serve(t, 200, truncatedExecBody(enc("x")))
+	if _, err := c.Files.Read(ctx, "d1", "/f"); codeOf(err) != "output_truncated" {
+		t.Fatalf("read truncated: %v", err)
+	}
+	if _, err := c.Files.List(ctx, "d1", "/d"); codeOf(err) != "output_truncated" {
+		t.Fatalf("list truncated: %v", err)
+	}
+	c, _ = serve(t, 200, execBody(2, ""))
+	if codeOf(c.Files.Write(ctx, "d1", "/f", nil)) != "file_command_failed" {
+		t.Fatal("write exit 2")
+	}
+	if _, err := c.Files.List(ctx, "d1", "/notdir"); codeOf(err) != "file_command_failed" {
+		t.Fatalf("list exit 2: %v", err)
+	}
+	c, got := serve(t, 200, execBody(0, ""))
+	if codeOf(c.Files.Write(ctx, "d1", "/f", make([]byte, 49*1024))) != "file_too_large" {
+		t.Fatal("write too large")
+	}
+	hugePath := "/" + strings.Repeat("a", 64*1024)
+	if _, err := c.Files.Read(ctx, "d1", hugePath); codeOf(err) != "file_too_large" {
+		t.Fatalf("read with huge path: %v", err)
+	}
+	if _, err := c.Files.List(ctx, "d1", hugePath); codeOf(err) != "file_too_large" {
+		t.Fatalf("list with huge path: %v", err)
+	}
+	if got.Method != "" {
+		t.Fatal("a request was sent for an oversized command")
+	}
+}
+
+func TestFilesListRejectsBadBase64(t *testing.T) {
+	c, _ := serve(t, 200, execBody(0, "not base64!\n"))
+	_, err := c.Files.List(context.Background(), "d1", "/w")
+	var apiErr *dock.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "bad_response" {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestTransportErrorKeepsContextCause(t *testing.T) {
 	hc := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		<-r.Context().Done()

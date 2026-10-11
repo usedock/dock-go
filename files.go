@@ -46,6 +46,26 @@ func checkTruncated(res *ExecResult, what string) error {
 	return nil
 }
 
+// writeCommand renders the docks.files.write template of sdk-scenarios/ops.yaml.
+// The dirname runs with an "x" sentinel so a path ending in a newline keeps it
+// ($(...) would strip it); "${d%??}" then drops the sentinel and its newline.
+func writeCommand(path string, content []byte) string {
+	q := shellWord(path)
+	b64 := base64.StdEncoding.EncodeToString(content)
+	return "d=$(dirname -- " + q + "; echo x) && mkdir -p -- \"${d%??}\" && printf '%s' '" + b64 + "' | base64 -d > " + q
+}
+
+// readCommand renders the docks.files.read template.
+func readCommand(path string) string { return "base64 -w0 -- " + shellWord(path) }
+
+// listCommand renders the docks.files.list template: a relative path gets ./ so
+// find never reads it as an expression, -H follows a symlinked directory, and
+// each entry name is printed base64-encoded on its own line.
+func listCommand(path string) string {
+	return "p=" + shellWord(path) + " && case $p in /*) ;; *) p=./$p ;; esac && test -d \"$p\" && " +
+		"find -H \"$p\" -mindepth 1 -maxdepth 1 -exec sh -c 'for f; do printf \"%s\" \"${f##*/}\" | base64 -w0; echo; done' sh {} +"
+}
+
 func checkPath(path string) error {
 	if path == "" {
 		return &Error{Code: "invalid_argument", Message: "path is empty"}
@@ -60,10 +80,7 @@ func (s *FilesService) Write(ctx context.Context, dockID, path string, content [
 	if err := checkPath(path); err != nil {
 		return err
 	}
-	q := shellWord(path)
-	b64 := base64.StdEncoding.EncodeToString(content)
-	cmd := "mkdir -p -- \"$(dirname -- " + q + ")\" && printf '%s' '" + b64 + "' | base64 -d > " + q
-	_, err := s.run(ctx, dockID, cmd)
+	_, err := s.run(ctx, dockID, writeCommand(path, content))
 	return err
 }
 
@@ -73,7 +90,7 @@ func (s *FilesService) Read(ctx context.Context, dockID, path string) ([]byte, e
 	if err := checkPath(path); err != nil {
 		return nil, err
 	}
-	res, err := s.run(ctx, dockID, "base64 -w0 -- "+shellWord(path))
+	res, err := s.run(ctx, dockID, readCommand(path))
 	if err != nil {
 		return nil, err
 	}
@@ -87,13 +104,14 @@ func (s *FilesService) Read(ctx context.Context, dockID, path string) ([]byte, e
 	return b, nil
 }
 
-// List returns the names in the directory at path, in ls order, including
-// hidden entries.
+// List returns the names in the directory at path, in no fixed order,
+// including hidden entries. A path that is not a directory fails with code
+// "file_command_failed".
 func (s *FilesService) List(ctx context.Context, dockID, path string) ([]string, error) {
 	if err := checkPath(path); err != nil {
 		return nil, err
 	}
-	res, err := s.run(ctx, dockID, "ls -1A -- "+shellWord(path))
+	res, err := s.run(ctx, dockID, listCommand(path))
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +120,14 @@ func (s *FilesService) List(ctx context.Context, dockID, path string) ([]string,
 	}
 	entries := []string{}
 	for _, l := range strings.Split(res.Stdout, "\n") {
-		if l != "" {
-			entries = append(entries, l)
+		if l == "" {
+			continue
 		}
+		b, derr := base64.StdEncoding.DecodeString(l)
+		if derr != nil {
+			return nil, &Error{Code: "bad_response", Status: 200, Message: "directory entry is not valid base64"}
+		}
+		entries = append(entries, string(b))
 	}
 	return entries, nil
 }
