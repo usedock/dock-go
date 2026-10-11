@@ -308,6 +308,14 @@ func (r *runner) call(ctx context.Context, op string, args map[string]any) map[s
 		if o, err = r.client.Docks.Delete(ctx, id); err == nil {
 			data = map[string]any{"operation": o}
 		}
+	case "images.list":
+		data, err = r.client.Images.List(ctx)
+	case "connectors.list":
+		data, err = r.client.Connectors.List(ctx, str(args, "workspaceId"))
+	case "connectors.connect":
+		data, err = r.client.Connectors.Connect(ctx, str(args, "workspaceId"), str(args, "kind"), str(args, "token"))
+	case "connectors.disconnect":
+		data, err = r.client.Connectors.Disconnect(ctx, str(args, "workspaceId"), str(args, "kind"))
 	case "operations.get":
 		data, err = r.client.Operations.Get(ctx, str(args, "operationId"))
 	case "docks.files.write":

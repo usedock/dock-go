@@ -65,11 +65,38 @@ Every call takes a `context.Context`; create, stop, resume and branch return whe
 | `client.Docks.Stop / Resume / Branch` | `POST /v1/docks/{id}/stop`, `/resume`, `/branch` |
 | `client.Docks.Delete` | `DELETE /v1/docks/{id}` (sends the `x-confirm-delete` header; returns an operation) |
 | `client.Operations.Get` | `GET /v1/operations/{id}` |
+| `client.Connectors.List / Connect / Disconnect` | `GET /v1/workspaces/{id}/connectors`, `PUT/DELETE /v1/workspaces/{id}/connectors/{kind}` |
+| `client.Images.List` | `GET /v1/images` |
 | `client.Files.Write / Read / List` | built on exec, see below |
 
 The API has no file routes. `Files` runs one `Docks.Exec` per call with the paths shell-quoted and the content sent as base64, so the dock must be running and one write is limited to about 48 KB (larger content fails with code `file_too_large` before anything is sent). A read is limited to about 768 KB of file content (the API clips exec output at 1 MiB), and clipped output from `Read` or `List` fails with code `output_truncated` instead of returning partial data. A non-zero exit from the command is an error with code `file_command_failed` (this includes `List` on a path that is not a directory). These codes match the "File helper errors" table in the shared scenarios. `List` returns names in no fixed order, including hidden entries; names are base64-encoded on the wire, so names with newlines or other odd bytes survive.
 
 Response structs ignore fields they do not know, and only `id`, `name` and `state` are relied upon.
+
+## Connectors and images
+
+Connect a tool to a workspace with a token (organization admins only), attach it to a dock by kind, and list the Dockyard images:
+
+```go
+imgs, _ := client.Images.List(ctx) // name, description, arch, sizeMiB, contents, available
+
+_, err := client.Connectors.Connect(ctx, "your-workspace-id", "slack", "xoxb-...")
+cs, _ := client.Connectors.List(ctx, "your-workspace-id") // kind, type, status, ...
+
+d, err := client.Docks.Create(ctx, dock.CreateParams{
+	WorkspaceID: "your-workspace-id",
+	Image:       "node-22",
+	Connectors:  []string{"slack"}, // d.Connectors echoes the attached kinds
+})
+var apiErr *dock.Error
+if errors.As(err, &apiErr) && apiErr.Code == dock.CodeConnectorNotConnected {
+	// connect it first
+}
+
+_, _ = client.Connectors.Disconnect(ctx, "your-workspace-id", "slack")
+```
+
+Error codes: `dock.CodeConnectorNotConnected` (409), `dock.CodeConnectorAdminOnly` (403), `dock.CodeConnectorNotFound` (404, from `Disconnect`), `dock.CodeImageUnknown` (400), `dock.CodeImageUnavailable` (400).
 
 ## Configuration
 
