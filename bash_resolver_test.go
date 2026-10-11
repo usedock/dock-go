@@ -33,8 +33,9 @@ func isSafeWindowsBash(p string) bool {
 	}
 	// Windows drops `.`/`..`, empty and trailing-dot segments and expands 8.3 names (WINDOW~1),
 	// so only plain segments are accepted or the System32/WindowsApps check could be bypassed.
+	// A `:` after the drive letter is an NTFS stream suffix (System32::$INDEX_ALLOCATION).
 	for _, seg := range strings.Split(n, `\`)[1:] {
-		if seg == "" || seg == "windowsapps" || strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") || strings.Contains(seg, "~") {
+		if seg == "" || seg == "windowsapps" || strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") || strings.Contains(seg, "~") || strings.Contains(seg, ":") {
 			return false
 		}
 	}
@@ -143,6 +144,14 @@ func TestResolveBash(t *testing.T) {
 		`C:\Windows\System32\..\System32\bash.exe`,
 		`C:\Users\me\AppData\Local\Microsoft\WINDOW~1\bash.exe`,
 		`C:\Users\me\AppData\Local\Microsoft\WindowsApps \bash.exe`,
+		`C:\Windows\System32::$INDEX_ALLOCATION\bash.exe`,
+		`C:\Windows\System32:$I30:$INDEX_ALLOCATION\bash.exe`,
+		`C:\Windows::$INDEX_ALLOCATION\System32\bash.exe`,
+		`C:\Users\me\AppData\Local\Microsoft\WindowsApps::$INDEX_ALLOCATION\bash.exe`,
+		`\\?\C:\Windows\System32\bash.exe`,
+		`\\.\C:\Windows\System32\bash.exe`,
+		`//?/C:/Windows/System32/bash.exe`,
+		`\\localhost\C$\Windows\System32\bash.exe`,
 	} {
 		got, reason := resolve("windows", env(map[string]string{"DOCK_TEST_BASH": bad}), has(bad, git), noLook)
 		if got != "" || reason == "" {
