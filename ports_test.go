@@ -20,17 +20,17 @@ func TestPortsList(t *testing.T) {
 	if got.Method != "GET" || got.Path != "/v1/docks/d 1/ports" {
 		t.Fatalf("%s %s", got.Method, got.Path)
 	}
-	if len(ps) != 2 || ps[0].Port != 3000 || ps[0].Visibility != dock.VisibilityPrivate || ps[0].URL == nil || *ps[0].URL != "https://p.example" {
+	if len(ps) != 2 || ps[0].Port != 3000 || ps[0].Visibility != dock.PortVisibilityPrivate || ps[0].URL == nil || *ps[0].URL != "https://p.example" {
 		t.Fatalf("ports %+v", ps)
 	}
-	if ps[1].Visibility != dock.VisibilityPublic || ps[1].URL != nil {
+	if ps[1].Visibility != dock.PortVisibilityPublic || ps[1].URL != nil {
 		t.Fatalf("second port %+v", ps[1])
 	}
 }
 
 func TestPortsExposeSendsVisibility(t *testing.T) {
 	c, got := serve(t, 201, `{"ok":true,"data":{"port":3000,"visibility":"public","url":"https://p.example"}}`)
-	p, err := c.Ports.Expose(context.Background(), "d1", 3000, dock.ExposePortParams{Visibility: dock.VisibilityPublic})
+	p, err := c.Ports.Expose(context.Background(), "d1", 3000, dock.ExposePortParams{Visibility: dock.PortVisibilityPublic})
 	if err != nil {
 		t.Fatal(err)
 	}

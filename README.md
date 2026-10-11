@@ -84,7 +84,7 @@ Expose a TCP port inside a dock at a URL. A new port is private: the URL needs a
 p, _ := client.Ports.Expose(ctx, d.ID, 3000, dock.ExposePortParams{}) // p.Visibility == "private"
 
 // Exposing again with a visibility changes it; leaving it empty keeps the current one.
-p, _ = client.Ports.Expose(ctx, d.ID, 3000, dock.ExposePortParams{Visibility: dock.VisibilityPublic})
+p, _ = client.Ports.Expose(ctx, d.ID, 3000, dock.ExposePortParams{Visibility: dock.PortVisibilityPublic})
 
 ps, _ := client.Ports.List(ctx, d.ID) // port, visibility, url, createdAt
 _ = client.Ports.Remove(ctx, d.ID, 3000)

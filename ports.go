@@ -8,17 +8,17 @@ import (
 
 // Port visibility values for ExposePortParams.Visibility and Port.Visibility.
 const (
-	// VisibilityPrivate needs a dock-bound API key or an organization
+	// PortVisibilityPrivate needs a dock-bound API key or an organization
 	// member's sign-in to open the URL. It is the default for a new port.
-	VisibilityPrivate = "private"
-	// VisibilityPublic lets anyone with the URL open it.
-	VisibilityPublic = "public"
+	PortVisibilityPrivate = "private"
+	// PortVisibilityPublic lets anyone with the URL open it.
+	PortVisibilityPublic = "public"
 )
 
 // Port is an exposed dock port.
 type Port struct {
 	Port int `json:"port"`
-	// Visibility is VisibilityPublic or VisibilityPrivate. Ports exposed
+	// Visibility is PortVisibilityPublic or PortVisibilityPrivate. Ports exposed
 	// before visibility existed read as public.
 	Visibility string `json:"visibility"`
 	// URL serves the port; nil while hosted ports are off on the deployment.
@@ -28,7 +28,7 @@ type Port struct {
 
 // ExposePortParams are the optional fields of PortsService.Expose.
 type ExposePortParams struct {
-	// Visibility is VisibilityPublic or VisibilityPrivate. Empty keeps the
+	// Visibility is PortVisibilityPublic or PortVisibilityPrivate. Empty keeps the
 	// current visibility of an exposed port and makes a new port private.
 	Visibility string `json:"visibility,omitempty"`
 }
