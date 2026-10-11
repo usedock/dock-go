@@ -43,6 +43,9 @@ func TestCreateConnectorErrors(t *testing.T) {
 		{403, "connector_admin_only", dock.CodeConnectorAdminOnly},
 		{400, "image_unknown", dock.CodeImageUnknown},
 		{400, "image_unavailable", dock.CodeImageUnavailable},
+		{404, "port_not_found", dock.CodePortNotFound},
+		{409, "port_limit_reached", dock.CodePortLimitReached},
+		{503, "ports_unavailable", dock.CodePortsUnavailable},
 	}
 	for _, tc := range cases {
 		c, _ := serve(t, tc.status, `{"ok":false,"code":"`+tc.code+`","message":"m"}`)

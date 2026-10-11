@@ -37,4 +37,12 @@ const (
 	CodeImageUnknown = "image_unknown"
 	// CodeImageUnavailable (HTTP 400): the image is known but no host serves it.
 	CodeImageUnavailable = "image_unavailable"
+	// CodePortNotFound (HTTP 404): closing a port that is not exposed.
+	CodePortNotFound = "port_not_found"
+	// CodePortLimitReached (HTTP 409): the dock already exposes the maximum of
+	// 10 ports.
+	CodePortLimitReached = "port_limit_reached"
+	// CodePortsUnavailable (HTTP 503): hosted ports are not configured on this
+	// deployment.
+	CodePortsUnavailable = "ports_unavailable"
 )
