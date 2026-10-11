@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -74,18 +75,35 @@ func TestCommandsMatchFixtures(t *testing.T) {
 // Runs the real command templates in bash: hostile names must be written,
 // read and listed as plain file names, never executed.
 func TestFileCommandsInBash(t *testing.T) {
-	bash, err := exec.LookPath("bash")
-	if err != nil {
-		t.Skip("bash not available")
+	bash, pathPrefix, reason := resolveBash(runtime.GOOS, os.Getenv, fileExists, exec.LookPath)
+	// CI must run this test, never skip it silently.
+	skip := func(why string) {
+		if os.Getenv("CI") != "" {
+			t.Fatal(why)
+		}
+		t.Skip(why)
 	}
-	if exec.Command(bash, "-c", "base64 -w0 </dev/null").Run() != nil {
-		t.Skip("GNU base64 not available")
+	if bash == "" {
+		skip(reason)
 	}
-	if exec.Command(bash, "-c", "find -H . -maxdepth 0").Run() != nil {
-		t.Skip("GNU find not available")
+	env := os.Environ()
+	if pathPrefix != "" {
+		env = append(env, "PATH="+pathPrefix+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
+	probe := func(cmd string) error {
+		c := exec.Command(bash, "-c", cmd)
+		c.Env = env
+		return c.Run()
+	}
+	if probe("base64 -w0 </dev/null") != nil {
+		skip("GNU base64 not available")
+	}
+	if probe("find -H . -maxdepth 0") != nil {
+		skip("GNU find not available")
 	}
 	runIn := func(t *testing.T, dir, cmd string) (string, error) {
 		c := exec.Command(bash, "-c", cmd)
+		c.Env = env
 		c.Dir = dir
 		out, err := c.CombinedOutput()
 		return string(out), err
