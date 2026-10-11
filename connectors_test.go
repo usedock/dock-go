@@ -41,6 +41,8 @@ func TestCreateConnectorErrors(t *testing.T) {
 	}{
 		{409, "connector_not_connected", dock.CodeConnectorNotConnected},
 		{403, "connector_admin_only", dock.CodeConnectorAdminOnly},
+		{400, "connector_token_invalid", dock.CodeConnectorTokenInvalid},
+		{502, "connector_unreachable", dock.CodeConnectorUnreachable},
 		{400, "image_unknown", dock.CodeImageUnknown},
 		{400, "image_unavailable", dock.CodeImageUnavailable},
 		{404, "port_not_found", dock.CodePortNotFound},
@@ -59,7 +61,7 @@ func TestCreateConnectorErrors(t *testing.T) {
 
 func TestConnectorsList(t *testing.T) {
 	c, got := serve(t, 200, `{"ok":true,"data":[
-		{"kind":"slack","type":"tool","status":"connected","accountLabel":"acme","scopes":["chat:write"],"oauthAvailable":true,"readOnly":false,"updatedAt":"2026-01-01T00:00:00.000Z"},
+		{"kind":"slack","type":"tool","status":"connected","accountLabel":"acme","scopes":["chat:write"],"oauthAvailable":true,"readOnly":false,"credentialType":"bot_token","updatedAt":"2026-01-01T00:00:00.000Z"},
 		{"kind":"github","type":"github","status":"not_connected","accountLabel":null,"scopes":[],"oauthAvailable":false,"readOnly":true,"updatedAt":null}]}`)
 	cs, err := c.Connectors.List(context.Background(), "w 1")
 	if err != nil {
@@ -70,6 +72,9 @@ func TestConnectorsList(t *testing.T) {
 	}
 	if len(cs) != 2 || cs[0].Kind != "slack" || cs[0].Status != "connected" || cs[0].AccountLabel == nil || *cs[0].AccountLabel != "acme" || !cs[0].OAuthAvailable {
 		t.Fatalf("connectors %+v", cs)
+	}
+	if cs[0].CredentialType == nil || *cs[0].CredentialType != "bot_token" || cs[1].CredentialType != nil {
+		t.Fatalf("credential types %+v", cs)
 	}
 	if cs[1].Kind != "github" || !cs[1].ReadOnly || cs[1].AccountLabel != nil || cs[1].UpdatedAt != nil {
 		t.Fatalf("github %+v", cs[1])

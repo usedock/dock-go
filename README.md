@@ -66,6 +66,7 @@ Every call takes a `context.Context`; create, stop, resume and branch return whe
 | `client.Docks.Delete` | `DELETE /v1/docks/{id}` (sends the `x-confirm-delete` header; returns an operation) |
 | `client.Operations.Get` | `GET /v1/operations/{id}` |
 | `client.Connectors.List / Connect / Disconnect` | `GET /v1/workspaces/{id}/connectors`, `PUT/DELETE /v1/workspaces/{id}/connectors/{kind}` |
+| `client.Environments.List / Get / Update` | `GET /v1/environments`, `GET/PATCH /v1/environments/{ref}` |
 | `client.Ports.List / Expose / Remove` | `GET/POST /v1/docks/{id}/ports`, `DELETE /v1/docks/{id}/ports/{port}` |
 | `client.Images.List` | `GET /v1/images` |
 | `client.Files.Write / Read / List` | built on exec, see below |
@@ -92,6 +93,10 @@ _ = client.Ports.Remove(ctx, d.ID, 3000)
 
 `URL` is nil while hosted ports are off on the deployment.
 
+## Environments
+
+`client.Environments.List / Get / Update` read and change environments. Reads need an organization member; `Update` needs an organization admin. `ProviderKeys` is `dock.ProviderKeysGateway` (default: provider keys stay in the control plane and docks get a placeholder key plus gateway base URLs) or `dock.ProviderKeysPlain` (the real key is written into the dock, so anyone inside it can read it). `EgressAllow` confines docks to a list of HTTPS hosts; `ClearEgressAllow` sends null to open egress again. Posture changes (the pass flags, `SafeForThirdParties`, `ProviderKeys`, `EgressAllow`) make a new environment version; renames, `IsDefault` and `SecretsAccess` do not. Environment views carry variable names (`VarNames`), never values. Connectors also report `CredentialType`.
+
 ## Connectors and images
 
 Connect a tool to a workspace with a token (organization admins only), attach it to a dock by kind, and list the Dockyard images:
@@ -115,7 +120,7 @@ if errors.As(err, &apiErr) && apiErr.Code == dock.CodeConnectorNotConnected {
 _, _ = client.Connectors.Disconnect(ctx, "your-workspace-id", "slack")
 ```
 
-Error codes: `dock.CodeConnectorNotConnected` (409), `dock.CodeConnectorAdminOnly` (403), `dock.CodeConnectorNotFound` (404, from `Disconnect`), `dock.CodeImageUnknown` (400), `dock.CodeImageUnavailable` (400), `dock.CodePortNotFound` (404), `dock.CodePortLimitReached` (409), `dock.CodePortsUnavailable` (503).
+Error codes: `dock.CodeConnectorNotConnected` (409), `dock.CodeConnectorAdminOnly` (403), `dock.CodeConnectorNotFound` (404, from `Disconnect`), `dock.CodeConnectorTokenInvalid` (400), `dock.CodeConnectorUnreachable` (502), `dock.CodeImageUnknown` (400), `dock.CodeImageUnavailable` (400), `dock.CodePortNotFound` (404), `dock.CodePortLimitReached` (409), `dock.CodePortsUnavailable` (503).
 
 Port 2222 is reserved for the dock agent and is rejected with `validation_error`. A dock can expose at most 10 ports.
 
