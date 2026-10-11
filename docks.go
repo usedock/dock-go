@@ -19,6 +19,8 @@ type Dock struct {
 	MemoryMiB       int      `json:"memoryMiB,omitempty"`
 	DiskGiB         int      `json:"diskGiB,omitempty"`
 	PersistentPaths []string `json:"persistentPaths,omitempty"`
+	// Connectors are the connector kinds attached to the dock.
+	Connectors []string `json:"connectors,omitempty"`
 }
 
 // CreateParams are the fields of Docks.Create. Zero values are omitted, so the
@@ -32,6 +34,9 @@ type CreateParams struct {
 	DiskGiB     int               `json:"diskGiB,omitempty"`
 	TTLSeconds  int               `json:"ttlSeconds,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
+	// Connectors attaches workspace connectors (for example "slack") by kind.
+	// Each must be connected, and only organization admins can use them.
+	Connectors []string `json:"connectors,omitempty"`
 	// IdempotencyKey makes a retry return the original dock. Sent as the
 	// idempotency-key header.
 	IdempotencyKey string `json:"-"`
