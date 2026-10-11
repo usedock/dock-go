@@ -31,8 +31,10 @@ func isSafeWindowsBash(p string) bool {
 	if !winAbs.MatchString(n) || winSystem.MatchString(n) {
 		return false
 	}
-	for _, seg := range strings.Split(n, `\`) {
-		if seg == "windowsapps" {
+	// Windows drops `.`/`..`, empty and trailing-dot segments and expands 8.3 names (WINDOW~1),
+	// so only plain segments are accepted or the System32/WindowsApps check could be bypassed.
+	for _, seg := range strings.Split(n, `\`)[1:] {
+		if seg == "" || seg == "windowsapps" || strings.HasSuffix(seg, ".") || strings.HasSuffix(seg, " ") || strings.Contains(seg, "~") {
 			return false
 		}
 	}
@@ -135,6 +137,12 @@ func TestResolveBash(t *testing.T) {
 		`bash`,
 		`bash.exe`,
 		`..\bash.exe`,
+		`C:\Windows\.\System32\bash.exe`,
+		`C:\Windows\System32.\bash.exe`,
+		`C:\Windows\\System32\bash.exe`,
+		`C:\Windows\System32\..\System32\bash.exe`,
+		`C:\Users\me\AppData\Local\Microsoft\WINDOW~1\bash.exe`,
+		`C:\Users\me\AppData\Local\Microsoft\WindowsApps \bash.exe`,
 	} {
 		got, reason := resolve("windows", env(map[string]string{"DOCK_TEST_BASH": bad}), has(bad, git), noLook)
 		if got != "" || reason == "" {
