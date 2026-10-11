@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -74,9 +75,9 @@ func TestCommandsMatchFixtures(t *testing.T) {
 // Runs the real command templates in bash: hostile names must be written,
 // read and listed as plain file names, never executed.
 func TestFileCommandsInBash(t *testing.T) {
-	bash, err := exec.LookPath("bash")
-	if err != nil {
-		t.Skip("bash not available")
+	bash, reason := resolveBash(runtime.GOOS, os.Getenv, fileExists, exec.LookPath)
+	if bash == "" {
+		t.Skip(reason)
 	}
 	if exec.Command(bash, "-c", "base64 -w0 </dev/null").Run() != nil {
 		t.Skip("GNU base64 not available")

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // maxCommandBytes is the exec command limit (64 KB). It caps a single Write at
@@ -69,6 +70,10 @@ func listCommand(path string) string {
 func checkPath(path string) error {
 	if path == "" {
 		return &Error{Code: "invalid_argument", Message: "path is empty"}
+	}
+	// JSON encoding would replace invalid bytes with U+FFFD and act on a different file.
+	if !utf8.ValidString(path) {
+		return &Error{Code: "invalid_argument", Message: "path is not valid UTF-8"}
 	}
 	return nil
 }

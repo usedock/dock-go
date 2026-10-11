@@ -325,3 +325,24 @@ func TestCustomHTTPClientAndContext(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFilesRejectNonUTF8PathSendsNothing(t *testing.T) {
+	c, got := serve(t, 200, execBody(0, ""))
+	ctx := context.Background()
+	bad := "/a/\xff.txt"
+	check := func(err error) {
+		t.Helper()
+		var apiErr *dock.Error
+		if !errors.As(err, &apiErr) || apiErr.Code != "invalid_argument" {
+			t.Fatalf("err %v", err)
+		}
+	}
+	check(c.Files.Write(ctx, "d1", bad, []byte("x")))
+	_, err := c.Files.Read(ctx, "d1", bad)
+	check(err)
+	_, err = c.Files.List(ctx, "d1", bad)
+	check(err)
+	if got.Method != "" {
+		t.Fatal("a request was sent")
+	}
+}
