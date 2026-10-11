@@ -183,7 +183,7 @@ func TestFilesWrite(t *testing.T) {
 	if err := c.Files.Write(context.Background(), "d1", "/a/it's.txt", []byte("hi\n")); err != nil {
 		t.Fatal(err)
 	}
-	want := "mkdir -p -- \"$(dirname -- '/a/it'\\''s.txt')\" && printf '%s' '" + base64.StdEncoding.EncodeToString([]byte("hi\n")) + "' | base64 -d > '/a/it'\\''s.txt'"
+	want := "d=$(dirname -- '/a/it'\\''s.txt'; echo x) && mkdir -p -- \"${d%??}\" && printf '%s' '" + base64.StdEncoding.EncodeToString([]byte("hi\n")) + "' | base64 -d > '/a/it'\\''s.txt'"
 	if got.Path != "/v1/docks/d1/exec" || got.Body["command"] != want {
 		t.Fatalf("command %q", got.Body["command"])
 	}
@@ -213,15 +213,18 @@ func TestFilesReadAndList(t *testing.T) {
 	if got.Body["command"] != "base64 -w0 -- '/x y'" {
 		t.Fatalf("command %q", got.Body["command"])
 	}
-	c, got = serve(t, 200, execBody(0, "a.txt\n\n.hidden\nb\n"))
+	c, got = serve(t, 200, execBody(0, enc("a.txt")+"\n\n"+enc(".hidden")+"\n"+enc("multi\nline")+"\n"))
 	entries, err := c.Files.List(context.Background(), "d1", "/w")
-	if err != nil || strings.Join(entries, ",") != "a.txt,.hidden,b" {
-		t.Fatalf("%v %v", err, entries)
+	if err != nil || strings.Join(entries, ",") != "a.txt,.hidden,multi\nline" {
+		t.Fatalf("%v %q", err, entries)
 	}
-	if got.Body["command"] != "ls -1A -- '/w'" {
+	wantList := `p='/w' && case $p in /*) ;; *) p=./$p ;; esac && test -d "$p" && find -H "$p" -mindepth 1 -maxdepth 1 -exec sh -c 'for f; do printf "%s" "${f##*/}" | base64 -w0; echo; done' sh {} +`
+	if got.Body["command"] != wantList {
 		t.Fatalf("command %q", got.Body["command"])
 	}
 }
+
+func enc(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
 
 func TestFilesNonZeroExitIsError(t *testing.T) {
 	c, _ := serve(t, 200, execBody(1, ""))
