@@ -95,7 +95,7 @@ _ = client.Ports.Remove(ctx, d.ID, 3000)
 
 ## Environments
 
-`client.Environments.List / Get / Update` read and change environments. `ProviderKeys` is `dock.ProviderKeysGateway` (default: provider keys stay in the control plane and docks get a placeholder key plus gateway base URLs) or `dock.ProviderKeysPlain` (the real key is written into the dock, so anyone inside it can read it; admins only). Connectors also report `CredentialType`.
+`client.Environments.List / Get / Update` read and change environments. Reads need an organization member; `Update` needs an organization admin. `ProviderKeys` is `dock.ProviderKeysGateway` (default: provider keys stay in the control plane and docks get a placeholder key plus gateway base URLs) or `dock.ProviderKeysPlain` (the real key is written into the dock, so anyone inside it can read it). `EgressAllow` confines docks to a list of HTTPS hosts; `ClearEgressAllow` sends null to open egress again. Posture changes (the pass flags, `SafeForThirdParties`, `ProviderKeys`, `EgressAllow`) make a new environment version; renames, `IsDefault` and `SecretsAccess` do not. Environment views carry variable names (`VarNames`), never values. Connectors also report `CredentialType`.
 
 ## Connectors and images
 
