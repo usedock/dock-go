@@ -57,9 +57,12 @@ jobs:
       - name: Scenario suite (offline fixtures)
         env:
           DOCK_SCENARIOS_DIR: ${{ github.workspace }}/dock/sdk-scenarios
+        # shell: bash adds pipefail, so a failing go test is not hidden by tee.
+        shell: bash
         run: |
-          go test -race -count=1 -run TestScenarios -v ./... | tee scenarios.log
-          if grep -q -- '--- SKIP: TestScenarios/offline' scenarios.log; then echo "offline scenarios were skipped"; exit 1; fi
+          go test -race -count=1 -run 'TestScenarios|TestCommandsMatchFixtures|TestFileCommandsInBash' -v ./... | tee scenarios.log
+          if grep -qE -- '--- SKIP: (TestScenarios/offline|TestCommandsMatchFixtures|TestFileCommandsInBash)' scenarios.log; then echo "scenario or file command tests were skipped"; exit 1; fi
+          for t in TestCommandsMatchFixtures TestFileCommandsInBash; do grep -q -- "--- PASS: $t " scenarios.log || { echo "$t did not pass"; exit 1; }; done
 
   gitleaks:
     runs-on: ubuntu-latest
